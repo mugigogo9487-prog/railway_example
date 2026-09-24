@@ -1,0 +1,457 @@
+{% extends "base.html" %}
+
+{% block title %}사내 회의실 예약 시스템 - 메인 현황판{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- Alert Messages (Success / Error) -->
+    {% if success_msg %}
+    <div id="successAlert" class="bg-emerald-50 border-l-4 border-emerald-500 p-4 rounded-r-xl shadow-sm flex items-start justify-between animate-fade-in">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 flex-shrink-0">
+                <i class="fa-solid fa-circle-check text-base"></i>
+            </div>
+            <div>
+                <h4 class="text-sm font-semibold text-emerald-900">예약 성공</h4>
+                <p class="text-sm text-emerald-700 mt-0.5">{{ success_msg }}</p>
+            </div>
+        </div>
+        <button onclick="document.getElementById('successAlert').remove()" class="text-emerald-500 hover:text-emerald-700">
+            <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+    </div>
+    {% endif %}
+
+    {% if error_msg %}
+    <div id="errorAlert" class="bg-rose-50 border-l-4 border-rose-500 p-4 rounded-r-xl shadow-sm flex items-start justify-between animate-fade-in">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full bg-rose-100 flex items-center justify-center text-rose-600 flex-shrink-0">
+                <i class="fa-solid fa-triangle-exclamation text-base"></i>
+            </div>
+            <div>
+                <h4 class="text-sm font-semibold text-rose-900">예약 실패 (중복/오류)</h4>
+                <p class="text-sm text-rose-700 mt-0.5">{{ error_msg }}</p>
+            </div>
+        </div>
+        <button onclick="document.getElementById('errorAlert').remove()" class="text-rose-500 hover:text-rose-700">
+            <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+    </div>
+    {% endif %}
+
+    <!-- Top KPI Stats Bar -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- Card 1: Total Rooms -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+            <div>
+                <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">운영 회의실</p>
+                <h3 class="text-2xl font-bold text-slate-900 mt-1">{{ rooms|length }}<span class="text-sm font-normal text-slate-500 ml-1">개실</span></h3>
+                <p class="text-xs text-slate-400 mt-1">대회의실 / A / B / 포커스</p>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl">
+                <i class="fa-solid fa-door-open"></i>
+            </div>
+        </div>
+
+        <!-- Card 2: Booked Slots -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+            <div>
+                <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">현재 예약 완료</p>
+                <h3 class="text-2xl font-bold text-indigo-600 mt-1">{{ booked_slots }}<span class="text-sm font-normal text-slate-500 ml-1">건 (시간)</span></h3>
+                <p class="text-xs text-indigo-400 mt-1">총 {{ total_slots }}개 슬롯 중</p>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl">
+                <i class="fa-solid fa-calendar-check"></i>
+            </div>
+        </div>
+
+        <!-- Card 3: Available Slots -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+            <div>
+                <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">예약 가능 슬롯</p>
+                <h3 class="text-2xl font-bold text-emerald-600 mt-1">{{ available_slots }}<span class="text-sm font-normal text-slate-500 ml-1">슬롯</span></h3>
+                <p class="text-xs text-emerald-500 mt-1">즉시 예약 가능</p>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl">
+                <i class="fa-solid fa-clock"></i>
+            </div>
+        </div>
+
+        <!-- Card 4: Utilization Rate -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+            <div>
+                <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">전체 예약률</p>
+                <h3 class="text-2xl font-bold text-amber-600 mt-1">{{ utilization_rate }}<span class="text-sm font-normal text-slate-500 ml-1">%</span></h3>
+                <div class="w-24 bg-slate-100 rounded-full h-1.5 mt-2 overflow-hidden">
+                    <div class="bg-amber-500 h-1.5 rounded-full" style="width: {{ utilization_rate }}%"></div>
+                </div>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl">
+                <i class="fa-solid fa-chart-pie"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Dashboard Grid (Left Form + Right Timetable) -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        
+        <!-- LEFT COLUMN: Reservation Form (4 cols on lg) -->
+        <div class="lg:col-span-4 space-y-6">
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <!-- Form Header -->
+                <div class="bg-gradient-to-r from-slate-900 to-slate-800 p-5 text-white">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-lg bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-blue-400">
+                            <i class="fa-solid fa-bookmark"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-base font-bold">회의실 즉시 예약</h2>
+                            <p class="text-xs text-slate-300">원하는 회의실과 시간을 선택해주세요</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form Body -->
+                <form action="/reserve" method="POST" class="p-6 space-y-5" id="reservationForm">
+                    <!-- 1. Reserver Name -->
+                    <div>
+                        <label for="reserver_name" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                            예약자 성명 / 팀명 <span class="text-rose-500">*</span>
+                        </label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
+                                <i class="fa-solid fa-user"></i>
+                            </span>
+                            <input 
+                                type="text" 
+                                id="reserver_name" 
+                                name="reserver_name" 
+                                required 
+                                placeholder="예: 홍길동 (개발팀)" 
+                                class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                            />
+                        </div>
+                    </div>
+
+                    <!-- 2. Room Selection -->
+                    <div>
+                        <label for="room_name" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                            회의실 선택 <span class="text-rose-500">*</span>
+                        </label>
+                        <div class="grid grid-cols-2 gap-2">
+                            {% for r in rooms %}
+                            <label class="cursor-pointer">
+                                <input 
+                                    type="radio" 
+                                    name="room_name" 
+                                    value="{{ r.name }}" 
+                                    class="peer sr-only room-radio" 
+                                    {% if (selected_room == r.name) or (loop.first and not selected_room) %}checked{% endif %}
+                                    required
+                                >
+                                <div class="p-3 rounded-xl border border-slate-200 bg-slate-50 peer-checked:border-blue-600 peer-checked:bg-blue-50/50 peer-checked:ring-1 peer-checked:ring-blue-600 transition hover:bg-slate-100">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-xs font-bold text-slate-800">{{ r.name }}</span>
+                                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-white text-slate-500 border border-slate-200 font-medium">{{ r.capacity }}</span>
+                                    </div>
+                                    <p class="text-[11px] text-slate-500 mt-1 truncate">{{ r.desc }}</p>
+                                </div>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <!-- 3. Start Time Selection -->
+                    <div>
+                        <label for="start_time" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                            시작 시간 <span class="text-rose-500">*</span>
+                        </label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
+                                <i class="fa-solid fa-clock"></i>
+                            </span>
+                            <select 
+                                id="start_time" 
+                                name="start_time" 
+                                required
+                                onchange="updateEndTimePreview(this.value)"
+                                class="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white appearance-none cursor-pointer transition"
+                            >
+                                <option value="" disabled {% if not selected_time %}selected{% endif %}>이용 시작 시간을 선택하세요</option>
+                                {% for h in hours %}
+                                <option value="{{ h }}" {% if selected_time == h %}selected{% endif %}>
+                                    {{ '%02d' % h }}:00 ({{ '%02d' % h }}:00 ~ {{ '%02d' % (h + 1) }}:00)
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <span class="absolute inset-y-0 right-0 flex items-center pr-3.5 pointer-events-none text-slate-400">
+                                <i class="fa-solid fa-chevron-down text-xs"></i>
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- 4. End Time Info Banner -->
+                    <div class="p-3.5 rounded-xl bg-slate-100 border border-slate-200 text-xs text-slate-600 flex items-center gap-3">
+                        <div class="w-6 h-6 rounded-md bg-blue-100 text-blue-600 flex items-center justify-center flex-shrink-0">
+                            <i class="fa-solid fa-hourglass-half text-xs"></i>
+                        </div>
+                        <div>
+                            <span class="font-semibold text-slate-800">이용 시간 규칙:</span>
+                            <span id="endTimeNotice" class="text-slate-600 ml-1">1회 예약 시 1시간으로 자동 고정됩니다.</span>
+                        </div>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <button 
+                        type="submit" 
+                        class="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-sm font-bold rounded-xl shadow-md shadow-blue-500/20 active:scale-[0.99] transition flex items-center justify-center gap-2"
+                    >
+                        <i class="fa-solid fa-calendar-plus"></i>
+                        <span>회의실 예약 완료하기</span>
+                    </button>
+                </form>
+            </div>
+
+            <!-- Quick Tips Card -->
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+                <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                    <i class="fa-solid fa-circle-info text-blue-500"></i>
+                    <span>회의실 예약 안내 및 팁</span>
+                </h4>
+                <ul class="text-xs text-slate-500 space-y-2">
+                    <li class="flex items-start gap-2">
+                        <i class="fa-solid fa-check text-emerald-500 mt-0.5"></i>
+                        <span>우측 시간표의 <strong class="text-slate-700">빈 슬롯을 클릭</strong>하면 폼에 회의실과 시간이 자동으로 선택됩니다.</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <i class="fa-solid fa-check text-emerald-500 mt-0.5"></i>
+                        <span>동일한 회의실과 시간에 이미 예약이 있는 경우 중복 예약이 제한됩니다.</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <i class="fa-solid fa-check text-emerald-500 mt-0.5"></i>
+                        <span>회의 종료 5분 전에는 다음 팀을 위해 테이블과 의자를 정리해주세요.</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- RIGHT COLUMN: Realtime Timetable Grid (8 cols on lg) -->
+        <div class="lg:col-span-8 space-y-6">
+            
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <!-- Timetable Header -->
+                <div class="p-5 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                    <div>
+                        <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                            <span>실시간 회의실 예약 현황표 (09:00 ~ 18:00)</span>
+                        </h2>
+                        <p class="text-xs text-slate-500 mt-0.5">회의실별 시간대별 예약 상태를 실시간으로 확인하고 관리합니다.</p>
+                    </div>
+                    <div class="flex items-center gap-3 text-xs">
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-3 h-3 rounded-md bg-slate-100 border border-slate-300"></span>
+                            <span class="text-slate-600 font-medium">예약 가능</span>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-3 h-3 rounded-md bg-blue-500"></span>
+                            <span class="text-slate-600 font-medium">예약 완료</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Timetable Grid Table Container -->
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse min-w-[650px]">
+                        <thead>
+                            <tr class="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase">
+                                <th class="py-3 px-4 w-32 border-r border-slate-200">회의실</th>
+                                {% for h in hours %}
+                                <th class="py-3 px-2 text-center border-r border-slate-200/60 last:border-r-0">
+                                    {{ '%02d' % h }}:00
+                                </th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 text-xs">
+                            {% for r in rooms %}
+                            {% set room_color = r.color %}
+                            <tr class="hover:bg-slate-50/50 transition">
+                                <!-- Room Header Cell -->
+                                <td class="py-4 px-4 bg-slate-50/80 border-r border-slate-200">
+                                    <div class="font-bold text-slate-900">{{ r.name }}</div>
+                                    <div class="text-[11px] text-slate-500 mt-0.5">{{ r.capacity }}</div>
+                                </td>
+
+                                <!-- 9 Hour Slot Cells -->
+                                {% for h in hours %}
+                                {% set res = grid_data[r.name][h] %}
+                                <td class="p-1.5 border-r border-slate-100 last:border-r-0 align-middle">
+                                    {% if res %}
+                                        <!-- Booked Slot -->
+                                        <div class="group relative w-full h-16 rounded-xl p-2 flex flex-col justify-between transition shadow-sm
+                                            {% if room_color == 'blue' %} bg-gradient-to-br from-blue-500 to-indigo-600 text-white
+                                            {% elif room_color == 'emerald' %} bg-gradient-to-br from-emerald-500 to-teal-600 text-white
+                                            {% elif room_color == 'violet' %} bg-gradient-to-br from-violet-500 to-purple-600 text-white
+                                            {% else %} bg-gradient-to-br from-amber-500 to-orange-600 text-white
+                                            {% endif %}
+                                        ">
+                                            <div class="flex items-center justify-between gap-1">
+                                                <span class="text-[10px] font-bold opacity-80 uppercase tracking-tighter">예약됨</span>
+                                                <!-- Cancel Action Form -->
+                                                <form action="/cancel/{{ res.id }}" method="POST" onsubmit="return confirm('{{ r.name }} {{ '%02d' % h }}:00 예약을 취소하시겠습니까?');" class="inline">
+                                                    <button type="submit" title="예약 취소" class="opacity-70 hover:opacity-100 text-white p-0.5 rounded hover:bg-black/20 transition">
+                                                        <i class="fa-solid fa-xmark text-xs"></i>
+                                                    </button>
+                                                </form>
+                                            </div>
+                                            <div>
+                                                <p class="font-bold text-xs truncate leading-tight" title="{{ res.reserver_name }}">{{ res.reserver_name }}</p>
+                                                <p class="text-[10px] opacity-90 mt-0.5">{{ '%02d' % res.start_time }}:00-{{ '%02d' % res.end_time }}:00</p>
+                                            </div>
+                                        </div>
+                                    {% else %}
+                                        <!-- Available Empty Slot -->
+                                        <button 
+                                            type="button"
+                                            onclick="selectSlot('{{ r.name }}', {{ h }})"
+                                            class="w-full h-16 rounded-xl border border-dashed border-slate-200 hover:border-blue-400 bg-white hover:bg-blue-50/50 p-2 flex flex-col items-center justify-center text-slate-400 hover:text-blue-600 transition group cursor-pointer"
+                                            title="{{ r.name }} {{ '%02d' % h }}:00 선택"
+                                        >
+                                            <i class="fa-solid fa-plus text-xs group-hover:scale-125 transition-transform"></i>
+                                            <span class="text-[10px] font-medium mt-1 text-slate-400 group-hover:text-blue-600">예약</span>
+                                        </button>
+                                    {% endif %}
+                                </td>
+                                {% endfor %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Detailed Reservation Table (List View) -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div class="p-4 border-b border-slate-200 flex items-center justify-between">
+                    <h3 class="text-sm font-bold text-slate-800 flex items-center gap-2">
+                        <i class="fa-solid fa-list-check text-slate-500"></i>
+                        <span>예약 현황 목록 (총 {{ reservations|length }}건)</span>
+                    </h3>
+                    <span class="text-xs text-slate-400">오늘 날짜 기준</span>
+                </div>
+
+                {% if reservations|length > 0 %}
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase">
+                                <th class="py-3 px-4">예약 번호</th>
+                                <th class="py-3 px-4">회의실</th>
+                                <th class="py-3 px-4">예약자</th>
+                                <th class="py-3 px-4">예약 시간</th>
+                                <th class="py-3 px-4">이용 시간</th>
+                                <th class="py-3 px-4 text-center">관리</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            {% for res in reservations %}
+                            <tr class="hover:bg-slate-50/80 transition">
+                                <td class="py-3 px-4 font-mono text-slate-500">#{{ res.id }}</td>
+                                <td class="py-3 px-4">
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold
+                                        {% if res.room_name == '대회의실' %} bg-blue-50 text-blue-700 border border-blue-200
+                                        {% elif res.room_name == '미팅룸A' %} bg-emerald-50 text-emerald-700 border border-emerald-200
+                                        {% elif res.room_name == '미팅룸B' %} bg-violet-50 text-violet-700 border border-violet-200
+                                        {% else %} bg-amber-50 text-amber-700 border border-amber-200
+                                        {% endif %}
+                                    ">
+                                        {{ res.room_name }}
+                                    </span>
+                                </td>
+                                <td class="py-3 px-4 font-semibold text-slate-800">{{ res.reserver_name }}</td>
+                                <td class="py-3 px-4 text-slate-600 font-medium">
+                                    <i class="fa-regular fa-clock text-slate-400 mr-1"></i>
+                                    {{ '%02d' % res.start_time }}:00 ~ {{ '%02d' % res.end_time }}:00
+                                </td>
+                                <td class="py-3 px-4 text-slate-500">1시간</td>
+                                <td class="py-3 px-4 text-center">
+                                    <form action="/cancel/{{ res.id }}" method="POST" onsubmit="return confirm('{{ res.room_name }} {{ '%02d' % res.start_time }}:00 예약을 취소하시겠습니까?');" class="inline">
+                                        <button type="submit" class="px-2.5 py-1 rounded-lg text-rose-600 hover:text-white hover:bg-rose-600 border border-rose-200 hover:border-rose-600 transition font-medium text-xs">
+                                            <i class="fa-solid fa-trash-can mr-1"></i> 취소
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="p-8 text-center text-slate-400">
+                    <i class="fa-regular fa-calendar-xmark text-3xl mb-2 text-slate-300"></i>
+                    <p class="text-sm">현재 등록된 예약이 없습니다.</p>
+                    <p class="text-xs text-slate-400 mt-1">좌측 폼이나 상단 시간표의 빈 슬롯을 클릭하여 예약을 등록해보세요.</p>
+                </div>
+                {% endif %}
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // 빈 시간표 슬롯 클릭 시 폼 자동 선택
+    function selectSlot(roomName, hour) {
+        // 1. 라디오 버튼 선택
+        const radios = document.querySelectorAll('.room-radio');
+        radios.forEach(radio => {
+            if (radio.value === roomName) {
+                radio.checked = true;
+            }
+        });
+
+        // 2. 시작 시간 셀렉트 선택
+        const timeSelect = document.getElementById('start_time');
+        if (timeSelect) {
+            timeSelect.value = hour;
+            updateEndTimePreview(hour);
+        }
+
+        // 3. 예약자 이름 인풋으로 포커스 및 부드러운 스크롤
+        const nameInput = document.getElementById('reserver_name');
+        if (nameInput) {
+            nameInput.focus();
+        }
+
+        // 모바일 환경 등에서 좌측 폼으로 스크롤 이동
+        const formEl = document.getElementById('reservationForm');
+        if (formEl && window.innerWidth < 1024) {
+            formEl.scrollIntoView({ behavior: 'smooth' });
+        }
+    }
+
+    // 시간 선택 시 종료 시간 안내 텍스트 업데이트
+    function updateEndTimePreview(hour) {
+        const noticeEl = document.getElementById('endTimeNotice');
+        if (noticeEl && hour) {
+            const h = parseInt(hour, 10);
+            const startStr = String(h).padStart(2, '0') + ':00';
+            const endStr = String(h + 1).padStart(2, '0') + ':00';
+            noticeEl.innerHTML = `<span class="text-blue-600 font-bold">${startStr} ~ ${endStr} (1시간)</span> 으로 예약됩니다.`;
+        }
+    }
+
+    // 초기 로딩 시 선택된 시간이 있으면 안내 문구 갱신
+    document.addEventListener('DOMContentLoaded', () => {
+        const timeSelect = document.getElementById('start_time');
+        if (timeSelect && timeSelect.value) {
+            updateEndTimePreview(timeSelect.value);
+        }
+    });
+</script>
+{% endblock %}
